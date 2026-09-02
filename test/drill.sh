@@ -50,10 +50,10 @@ trap 'rm -rf "$WORK"' EXIT
 
 # --- the functions under test, extracted -------------------------------------
 FNS="$WORK/drill-fns.sh"
-for fn in tree_of assert_installed_from classify_leg capture_state default_record_path render_github_users publish_record emit_record; do
+for fn in tree_of self_tree rig_home_of assert_installed_from tree_source_commit assert_source_commit classify_leg capture_state default_record_path render_github_users publish_record emit_record; do
   awk "/^${fn}\(\) \{/,/^\}/" "$ROOT/drill/drill.sh" >> "$FNS"
 done
-for fn in tree_of assert_installed_from classify_leg capture_state default_record_path render_github_users publish_record emit_record; do
+for fn in tree_of self_tree rig_home_of assert_installed_from tree_source_commit assert_source_commit classify_leg capture_state default_record_path render_github_users publish_record emit_record; do
   check "extraction guards the awk: ${fn}() landed" 0 "${fn}() {" grep -F "${fn}() {" "$FNS"
 done
 # shellcheck source=/dev/null
@@ -74,20 +74,92 @@ check "tree_of refuses a dangling chain — a tree that is not there is not a tr
   tree_of "$WORK/bin/dangling"
 
 # =============================================================================
-# assert_installed_from — the up-front ref refusal, naming both refs
+# self_tree — the SUBJECT (#220). The drill drills the tree it ships in, so a
+# script that cannot locate one has nothing to drill and must say so. These are
+# the two ways to arrive without a tree, and both used to be legitimate entry
+# paths back when the subject came over the network.
+# =============================================================================
+ST="$WORK/rigtree"; mkdir -p "$ST/drill" "$ST/bin"
+: > "$ST/install.sh"; printf '9.9.9\n' > "$ST/VERSION"; : > "$ST/bin/rig"
+: > "$ST/drill/drill.sh"
+check "self_tree resolves the rig tree a drill script ships in" 0 "$ST" \
+  self_tree "$ST/drill/drill.sh"
+NOTRIG="$WORK/notrig"; mkdir -p "$NOTRIG/drill"; : > "$NOTRIG/drill/drill.sh"
+check "…and refuses a directory that is not a rig tree — a lone copy drills nothing" 1 "" \
+  self_tree "$NOTRIG/drill/drill.sh"
+: > "$NOTRIG/install.sh"; printf '9.9.9\n' > "$NOTRIG/VERSION"
+check "…still refuses when only some of the tree's marks are there" 1 "" \
+  self_tree "$NOTRIG/drill/drill.sh"
+self_tree_through_process_substitution() { self_tree <(printf ''); }
+check "…and refuses a process substitution: no file, so no tree above it" 1 "" \
+  self_tree_through_process_substitution
+
+# =============================================================================
+# rig_home_of — the install root the drill wipes has to be the one the install
+# re-creates, or the drill measures one install and leaves another behind.
+# =============================================================================
+check "rig_home_of derives the install root from a versioned tree" 0 "/opt/rig" \
+  rig_home_of /opt/rig/versions/0.3.3
+check "…root's default layout too" 0 "/root/.local/share/rig" \
+  rig_home_of /root/.local/share/rig/versions/0.3.3
+check "…and refuses a tree that is not installed — a checkout has no root to wipe" 1 "" \
+  rig_home_of /home/dan/src/rig
+
+# =============================================================================
+# assert_installed_from — the refusal keeps its place on a narrower reason
+# (#220 D5): not "a stale ref was exported" — there is no rig ref any more —
+# but "the install landed where we think it did, from the source we think it
+# did". box is still installed by ref, and rig is still asserted through
+# whatever answers on PATH.
 # =============================================================================
 TREE="$WORK/tree-main"; mkdir -p "$TREE"
-printf 'heavy-duty/rig@main\n' > "$TREE/INSTALLED_FROM"
+printf 'artifact:rig-9.9.9.sh sha256:abc123\n' > "$TREE/INSTALLED_FROM"
 check "matching INSTALLED_FROM passes silently" 0 "" \
-  assert_installed_from rig "$TREE" "heavy-duty/rig@main"
-check "a mismatch refuses (the #103 hazard: asked release, got main)" 1 "FATAL" \
-  assert_installed_from rig "$TREE" "heavy-duty/rig@release/9.9.9"
-check "…the refusal names the ref that was ASKED for" 1 "heavy-duty/rig@release/9.9.9" \
-  assert_installed_from rig "$TREE" "heavy-duty/rig@release/9.9.9"
-check "…and the ref that actually LANDED" 1 "heavy-duty/rig@main" \
-  assert_installed_from rig "$TREE" "heavy-duty/rig@release/9.9.9"
+  assert_installed_from rig "$TREE" "artifact:rig-9.9.9.sh sha256:abc123"
+check "a mismatch refuses — another rig answered on PATH" 1 "FATAL" \
+  assert_installed_from rig "$TREE" "local:/opt/rig/versions/9.9.9"
+check "…the refusal names the source that was ASKED for" 1 "local:/opt/rig/versions/9.9.9" \
+  assert_installed_from rig "$TREE" "local:/opt/rig/versions/9.9.9"
+check "…and the source that actually LANDED" 1 "artifact:rig-9.9.9.sh sha256:abc123" \
+  assert_installed_from rig "$TREE" "local:/opt/rig/versions/9.9.9"
+assert_installed_from rig "$TREE" "local:/opt/rig/versions/9.9.9" 2>"$WORK/from-refusal" >/dev/null
+refute "…and it no longer blames a stale export the drill can no longer be given" \
+  "export" "$WORK/from-refusal"
 check "an unreadable INSTALLED_FROM refuses too — absence is not a match" 1 "<unreadable>" \
-  assert_installed_from rig "$WORK/no-such-tree" "heavy-duty/rig@main"
+  assert_installed_from rig "$WORK/no-such-tree" "artifact:rig-9.9.9.sh sha256:abc123"
+check "box keeps the ref-shaped assertion, because box is still installed by ref" 1 "heavy-duty/box@0.10.0" \
+  assert_installed_from box "$TREE" "heavy-duty/box@0.10.0"
+
+# =============================================================================
+# tree_source_commit + assert_source_commit — "from an artifact built at commit
+# X, a run drills the rig built from X", asserted by the drill rather than read
+# off a log. The stamp travels with the tree through the staging copy and
+# install.sh's own copy, so comparing it end to end is what makes the record
+# cite a commit instead of an intention.
+# =============================================================================
+SC_OK="$WORK/tree-stamped"; mkdir -p "$SC_OK"
+printf '21afc76c7fa2e63654df34d5d7a332950f60fb5e\n' > "$SC_OK/SOURCE_COMMIT"
+SC_DIRTY="$WORK/tree-dirty"; mkdir -p "$SC_DIRTY"
+printf '21afc76c7fa2e63654df34d5d7a332950f60fb5e-dirty\n' > "$SC_DIRTY/SOURCE_COMMIT"
+SC_NONE="$WORK/tree-unstamped"; mkdir -p "$SC_NONE"
+check "tree_source_commit reads the artifact build's stamp" 0 "21afc76c7fa2e63654df34d5d7a332950f60fb5e" \
+  tree_source_commit "$SC_OK"
+check "…and carries a dirty build's -dirty suffix through verbatim" 0 "-dirty" \
+  tree_source_commit "$SC_DIRTY"
+check "a tree no artifact built says (unstamped), never an invented commit" 0 "(unstamped)" \
+  tree_source_commit "$SC_NONE"
+check "assert_source_commit passes when the stamps agree" 0 "" \
+  assert_source_commit "$SC_OK" "21afc76c7fa2e63654df34d5d7a332950f60fb5e"
+check "a stamp mismatch is FATAL — the drilled tree is not the shipped tree" 1 "FATAL" \
+  assert_source_commit "$SC_OK" "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef"
+check "…and the refusal names both commits" 1 "ships in a tree built from deadbeef" \
+  assert_source_commit "$SC_OK" "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef"
+check "a dirty build cannot pass as its own clean commit" 1 "FATAL" \
+  assert_source_commit "$SC_DIRTY" "21afc76c7fa2e63654df34d5d7a332950f60fb5e"
+check "two unstamped trees agree — a checkout drilling itself is a real use" 0 "" \
+  assert_source_commit "$SC_NONE" "(unstamped)"
+check "…but an unstamped install cannot pass for a stamped one" 1 "FATAL" \
+  assert_source_commit "$SC_NONE" "21afc76c7fa2e63654df34d5d7a332950f60fb5e"
 
 # =============================================================================
 # classify_leg — a loud skip is a SKIP, never a pass (box#153's defect class)
@@ -158,7 +230,9 @@ check "…and the diff names the drifted sshd keyword, not just 'differs'" 1 "pa
 # =============================================================================
 emit() {   # emit <outfile> — emit_record with the harness globals staged
   DRILL_VERSION="9.9.9" RUN_ID="drill-2026-01-01-a" \
-  REF="release/9.9.9" BOXREF="release/0.4.0" RIG_SHA="5d6e7f8" BOX_SHA="1a2b3c4" \
+  RIG_SOURCE_COMMIT="21afc76c7fa2e63654df34d5d7a332950f60fb5e-dirty" \
+  RIG_FROM="artifact:rig-9.9.9.sh sha256:abc123" \
+  BOXREF="release/0.4.0" BOX_SHA="1a2b3c4" \
   TPLREPO="heavy-duty/rig-templates" TPLREF="9f8e7d6c5b4a39281706f5e4d3c2b1a098765432" TPL_SHA="9f8e7d6" TPL_SOURCE="snapshot" \
   bash -c '
     . "$1"
@@ -172,8 +246,12 @@ emit() {   # emit <outfile> — emit_record with the harness globals staged
 emit out "$WORK/record.md"
 check "record: the version-and-date heading" 0 "# Release drill — 9.9.9 — " head -1 "$WORK/record.md"
 check "record: the run ID that joins the family's records" 0 "Run ID: drill-2026-01-01-a" cat "$WORK/record.md"
-check "record: both pinned refs with their SHAs" 0 "rig@5d6e7f8 (RIG_REF=release/9.9.9)" cat "$WORK/record.md"
-check "record: …box's too" 0 "box@1a2b3c4 (BOX_REF=release/0.4.0)" cat "$WORK/record.md"
+check "record: the rig fields are the installed tree's, not an argument's (#220)" 0 \
+  "Rig under drill: 9.9.9, built from 21afc76c7fa2e63654df34d5d7a332950f60fb5e-dirty — artifact:rig-9.9.9.sh sha256:abc123." \
+  cat "$WORK/record.md"
+check "record: an artifact built from a dirty work tree is stamped -dirty" 0 "-dirty" cat "$WORK/record.md"
+refute "record: no rig ref field survives — there is no rig ref to cite" "RIG_REF=" "$WORK/record.md"
+check "record: box still cites a ref, because box is still installed by one" 0 "Candidate box: box@1a2b3c4 (BOX_REF=release/0.4.0)." cat "$WORK/record.md"
 check "record: the template registry SHA and actual source ride alongside the pair (#110/#153)" 0 "rig-templates@9f8e7d6 (ref 9f8e7d6c5b4a39281706f5e4d3c2b1a098765432, snapshot)" cat "$WORK/record.md"
 check "record: one table row per leg, result verbatim" 0 "| re-converge (idempotence) | clean, no changes |" cat "$WORK/record.md"
 check "record: the numbers, skips counted apart from passes" 0 "12 passed, 1 failed, 1 skipped" cat "$WORK/record.md"
@@ -184,9 +262,11 @@ check "record: the isolation boundary is named as box's, in words" 0 "NOT assert
 refute "record with a skip cannot read as a clean sweep" "Failed: nothing" "$WORK/record.md"
 refute "notes are findings for the log, not failures for the record" "NOTE: something" "$WORK/record.md"
 
-# The all-green shape: says so plainly, and only then.
+# The all-green shape: says so plainly, and only then. No RIG_SOURCE_COMMIT or
+# RIG_FROM here on purpose — the emitter's own defaults have to hold, because a
+# record whose rig line went blank is the failure mode this file exists for.
 DRILL_VERSION="9.9.9" RUN_ID="drill-2026-01-01-a" \
-REF="release/9.9.9" BOXREF="release/0.4.0" RIG_SHA="5d6e7f8" BOX_SHA="1a2b3c4" \
+BOXREF="release/0.4.0" BOX_SHA="1a2b3c4" \
 bash -c '
   . "$1"
   pass=20 fail=0 skipped=0
@@ -197,6 +277,8 @@ bash -c '
 ' _ "$FNS" "$WORK/record-green.md"
 check "an all-green record says every leg ran and passed" 0 "Every leg ran and every check passed" \
   cat "$WORK/record-green.md"
+check "an unmeasured rig line degrades to (unstamped), never to a blank field" 0 \
+  "Rig under drill: 9.9.9, built from (unstamped) — unknown." cat "$WORK/record-green.md"
 check "the default record path is independent of a checkout" 0 "/root/drills/9.9.9.md" \
   default_record_path 9.9.9
 printf 'ssh-ed25519 AAAAone dan@laptop\nssh-ed25519 AAAAtwo dan@desktop\n' > "$WORK/github.keys"
@@ -215,8 +297,20 @@ check "the final record payload includes the full record" 0 "Every leg ran and e
 # =============================================================================
 # Arg refusals fire before the root check (repo doctrine, bootstrap.sh:114),
 # which is what makes them provable here without a throwaway machine.
-check "drill.sh refuses to run without BOTH refs pinned (#103)" 2 "--box-ref" \
-  env -u RIG_REF -u BOX_REF bash "$ROOT/drill/drill.sh" --rig-ref release/9.9.9 --yes
+check "drill.sh refuses to run without box's ref pinned (#103)" 2 "--box-ref" \
+  env -u BOX_REF bash "$ROOT/drill/drill.sh" --yes
+# The instrument's own name for its subject must not come back by any route —
+# not a flag, not a variable, not a comment. #220's acceptance criterion,
+# mechanised so a re-introduction reds here rather than in a reviewer's eye.
+drill_names_no_removed_rig_flag() {
+  grep -c 'RIG_REPO\|RIG_REF\|rig-repo\|rig-ref' "$ROOT/drill/drill.sh" || true
+}
+check "the removed rig repo/ref names survive nowhere in the instrument, comments included" 0 "0" \
+  drill_names_no_removed_rig_flag
+drill_help_has_removed_rig_repo_flag() { bash "$ROOT/drill/drill.sh" --help | grep -q -- '--rig-repo'; }
+drill_help_has_removed_rig_ref_flag() { bash "$ROOT/drill/drill.sh" --help | grep -q -- '--rig-ref'; }
+check "drill.sh help names no removed --rig-repo flag" 1 "" drill_help_has_removed_rig_repo_flag
+check "drill.sh help names no removed --rig-ref flag" 1 "" drill_help_has_removed_rig_ref_flag
 drill_help_has_retired_flag() { bash "$ROOT/drill/drill.sh" --help | grep -q -- '--runner-'; }
 drill_help_has_retired_coolify_flag() { bash "$ROOT/drill/drill.sh" --help | grep -q -- '--coolify-version'; }
 drill_help_spills_internal_commentary() {
@@ -240,32 +334,48 @@ printf '%s\n' \
 check "drill.sh help names no retired runner flag" 1 "" drill_help_has_retired_flag
 check "drill.sh help names no retired Coolify flag" 1 "" drill_help_has_retired_coolify_flag
 check "drill.sh help ends before internal commentary" 1 "" drill_help_spills_internal_commentary
+# --help stays cheap: it answers before the pre-flight resolves a subject, so a
+# reader with no tree yet still gets told how to get one.
 check "drill.sh help works through process substitution" 0 "THROWAWAY" \
   drill_process_substitution_help
+check "…and the help says where the subject comes from now" 0 "the tree this script is part of" \
+  bash "$ROOT/drill/drill.sh" --help
 check "drill.sh runs exactly two numbered legs" 0 "2" drill_leg_count
 check "drill leg counter sees a synthetic third leg" 0 "3" \
   drill_leg_count "$DRILL_LEG_COUNT_FIXTURE"
 check "drill installs Docker directly before the db leg" 0 "" docker_source_precedes_db
-check "…and the refusal shows which ref is missing" 2 "<unset>" \
-  env -u RIG_REF -u BOX_REF bash "$ROOT/drill/drill.sh" --rig-ref release/9.9.9 --yes
+check "…and the refusal shows that the ref is missing" 2 "<unset>" \
+  env -u BOX_REF bash "$ROOT/drill/drill.sh" --yes
+# The subject refusal, on the shipped script: a drill script with no rig tree
+# around it stops before it can spend anything. It fires after box's ref, so
+# the invocation pins one.
+drill_outside_a_rig_tree() {
+  mkdir -p "$WORK/lonely/drill"
+  cp "$ROOT/drill/drill.sh" "$WORK/lonely/drill/drill.sh"
+  bash "$WORK/lonely/drill/drill.sh" --box-ref b --users "$WORK/no-such-users" --yes
+}
+check "a drill script with no rig tree around it refuses — there is nothing to drill" 2 \
+  "cannot find the rig tree this script ships in" drill_outside_a_rig_tree
+check "…and the refusal points at the artifact as the way to get one on the machine" 2 \
+  "dist/release-artifact.sh" drill_outside_a_rig_tree
+check "an install root that is not sane is refused before anything is wiped" 2 "not a sane install root" \
+  env RIG_HOME=/ bash "$ROOT/drill/drill.sh" --box-ref b --users "$WORK/no-such-users" --yes
 check "a tenant role is refused — the drill converges machines, not guests" 2 "not a machine role" \
-  bash "$ROOT/drill/drill.sh" --rig-ref r --box-ref b --role claude-box --yes
+  bash "$ROOT/drill/drill.sh" --box-ref b --role claude-box --yes
 check "no users source is a refusal" 2 "exactly one of --users <path> or --users-from-github <handle>" \
-  bash "$ROOT/drill/drill.sh" --rig-ref r --box-ref b --yes
+  bash "$ROOT/drill/drill.sh" --box-ref b --yes
 check "both users sources are refused" 2 "exactly one of --users <path> or --users-from-github <handle>" \
-  bash "$ROOT/drill/drill.sh" --rig-ref r --box-ref b --users "$WORK/no-such-users" --users-from-github danmt --yes
+  bash "$ROOT/drill/drill.sh" --box-ref b --users "$WORK/no-such-users" --users-from-github danmt --yes
 check "an unreadable users file dies before anything is spent" 2 "cannot read users file" \
-  bash "$ROOT/drill/drill.sh" --rig-ref r --box-ref b --users "$WORK/no-such-users" --yes
+  bash "$ROOT/drill/drill.sh" --box-ref b --users "$WORK/no-such-users" --yes
 check "a GitHub users handle must also be a valid rig username" 2 "valid rig username" \
-  bash "$ROOT/drill/drill.sh" --rig-ref r --box-ref b --users-from-github BadHandle --yes
+  bash "$ROOT/drill/drill.sh" --box-ref b --users-from-github BadHandle --yes
 check "root is refused as a GitHub-derived operator during pre-flight" 2 "root is reserved" \
-  bash "$ROOT/drill/drill.sh" --rig-ref r --box-ref b --users-from-github root --yes
-check "a PR ref is refused before install and names the fork-branch form" 2 "fork branch" \
-  bash "$ROOT/drill/drill.sh" --rig-ref refs/pull/191/head --box-ref b --users "$WORK/no-such-users" --yes
+  bash "$ROOT/drill/drill.sh" --box-ref b --users-from-github root --yes
 check "a non-admin SUDO_USER is refused before its users source is read" 2 "incus exec <box> -- bash -l" \
-  env SUDO_USER=dev bash "$ROOT/drill/drill.sh" --rig-ref r --box-ref b --users "$WORK/no-such-users" --yes
+  env SUDO_USER=dev bash "$ROOT/drill/drill.sh" --box-ref b --users "$WORK/no-such-users" --yes
 check "the SUDO_USER refusal also names the environment fix" 2 "unset SUDO_USER" \
-  env SUDO_USER=dev bash "$ROOT/drill/drill.sh" --rig-ref r --box-ref b --users "$WORK/no-such-users" --yes
+  env SUDO_USER=dev bash "$ROOT/drill/drill.sh" --box-ref b --users "$WORK/no-such-users" --yes
 check "an unknown flag dies loudly, exit 2" 2 "unknown option" \
   bash "$ROOT/drill/drill.sh" --frobnicate
 check "--help prints the header and exits 0" 0 "THROWAWAY" \
