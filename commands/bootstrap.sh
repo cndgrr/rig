@@ -62,11 +62,11 @@ in. So the complete path is the default path and skipping it is a deliberate
 --no-users, not an omission.
 
 --users does NOT reach the box TENANT roles (any '-box' name, e.g. claude-box,
-staging-box). A tenant is a box-minted GUEST: box auto-runs its bootstrap at mint,
-non-interactively, with no file to hand it; the guest never joins the tailnet
-and has no SSH door of its own — entry is `box shell`, gated by the HOST's
-incus grants, which the host's own users file already converged. A fleet-wide
-operator file has nothing to converge in there.
+staging-box). A tenant is a box-minted GUEST, converged by hand from a root
+shell inside that one box; the guest never joins the tailnet and has no SSH
+door of its own — entry is `box shell`, gated by the HOST's incus grants,
+which the host's own users file already converged. A fleet-wide operator file
+has nothing to converge in there: one guest is not the fleet it describes.
 
 Machine roles are read from the resolved template registry:
 EOF

@@ -170,12 +170,13 @@ trait), and every other way that step can fail lands in apply's existing
 refusal at the end.
 
 `--users` does **not** reach the box TENANT roles (`claude-box`, `codex-box`,
-`grok-box`, `kimi-box`, `staging-box`). A tenant is a box-minted *guest*: box auto-runs its bootstrap at
-mint, non-interactively, with no file to hand it; the guest never joins the
-tailnet and has no SSH door of its own — you enter with `box shell`, gated by
-the **host's** `incus` grants, which the host's own users file already
-converged. A fleet-wide operator file has nothing to converge in there, and
-requiring one would break the mint-time path outright.
+`grok-box`, `kimi-box`, `staging-box`). A tenant is a box-minted *guest*,
+converged by hand from a root shell inside that one box; the guest never joins
+the tailnet and has no SSH door of its own — you enter with `box shell`, gated
+by the **host's** `incus` grants, which the host's own users file already
+converged. A fleet-wide operator file has nothing to converge in there: one
+guest is not the fleet the file describes, and the accounts that reach it are
+the host's.
 
 **Registry roles are presets over three orthogonal traits**, nothing more — every
 per-role behavior keys off a trait, so any flag overrides its trait without
@@ -252,7 +253,7 @@ failed to become what it claims.
 ### `rig bootstrap --undo`
 
 ```sh
-sudo rig bootstrap --undo
+rig bootstrap --undo
 ```
 
 Leaves the tailnet and then removes `/etc/rig/role`, but only when the marker
@@ -384,11 +385,11 @@ box is present) and **opt-out** (`RIG_SKIP_BOX_INSTALL=1`, plus a graceful skip
 with a manual-command pointer when curl or the network is missing — box is the
 host *extra*, so a failed box install never aborts a bootstrap that otherwise
 succeeded). Source is pinnable with `BOX_REPO` / `BOX_REF` (default
-`heavy-duty/box@0.9.0`). If `/dev/kvm` is absent, rig warns (a host that exists to
+`heavy-duty/box@0.10.0`). If `/dev/kvm` is absent, rig warns (a host that exists to
 run VMs should have it) but does not fail — the shape is rehearsed in containers,
-which legitimately lack it. (The world-readable global install path — box under
-`/opt/box` readable by every non-root user — depends on box PR #71; until that
-merges box's root install lands in `/root`.)
+which legitimately lack it. (The global install path is world-readable by
+construction: box's root install lands in `/opt/box`, readable by every
+non-root user, with the entrypoint on every login PATH via `/usr/local/bin`.)
 
 > **The box install is release-pinned.** A rig release carries one box release
 > pin, so two machines bootstrapped from the same rig install the same box.
@@ -510,14 +511,20 @@ hardening. The CLI also lands on the **system** PATH (`/usr/local/bin`):
 `box exec <box> -- claude …` runs a non-interactive shell that reads no rc
 files, so a PATH export alone is invisible to it.
 
-**Creds-free and non-interactive, by contract.** box auto-runs these at mint
-(`box exec … rig bootstrap claude-box`), so nothing here prompts, joins, or admits
-— no tailnet, no keys (the harness pins this by *absence*: no `tailscale`, no
-prompt, in the shipped script). The one creds-holding step a staging guest
-eventually needs — the tailnet workload join — stays **operator-run**, exactly
-as box#69 designed it: `box shell` → `sudo rig bootstrap workload-server --hostname
-<name> --users <path>` (or `--no-users` — a guest's door is `box shell`, gated
-by the host's grants) with a single-use tagged pre-auth key. After that join, re-running
+**Creds-free and non-interactive, by contract.** box mints a blank guest and a
+human converges it — mint, `box root <box>`, install rig, then this command —
+the four steps
+[box's own quick start](https://github.com/heavy-duty/box#quick-start)
+documents; rig's half of that path is what happens after the invocation, and it
+is unchanged. Nothing here prompts, joins, or admits — no tailnet, no keys (the
+harness pins this by *absence*: no `tailscale`, no prompt, in the shipped
+script) — and the registry fetch stays **unauthenticated** because a converge
+run this way holds nothing to authenticate with. The one creds-holding step a
+staging guest eventually needs — the tailnet workload join — stays
+**operator-run**, exactly as box#69 designed it: `box root <box>` → `rig
+bootstrap workload-server --hostname <name> --users <path>` (or `--no-users` —
+a guest's door is `box shell`, gated by the host's grants) with a single-use
+tagged pre-auth key. After that join, re-running
 `rig bootstrap staging-box` still converges docker + hardening and leaves the
 workload marker alone — the machine role is the truer statement of what the
 box became.
@@ -959,9 +966,9 @@ holds nothing secret anyway: usernames, roles, and *public* keys.
 **The honest limit of the `rig` role:** its sudo grant is binary-scoped, not
 argument-scoped — it trusts its holder with every rig verb *except* identity
 management. The `rig users` commands gate their **invoker**: run under sudo
-by anyone outside `rig-admin`, they refuse. Without that gate, `sudo rig
-users apply` against a file naming yourself admin would make the scoped grant
-silently root-equivalent through the very tool it scopes. Direct root — a
+by anyone outside `rig-admin`, they refuse. Without that gate, a `rig users
+apply` run through that grant, against a file naming yourself admin, would
+make it silently root-equivalent through the very tool it scopes. Direct root — a
 bring-up shell, before any admin exists — proceeds.
 
 `box` binds where VMs live, and a users file is fleet-wide — its box grants
