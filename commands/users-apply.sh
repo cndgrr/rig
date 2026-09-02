@@ -56,8 +56,8 @@ roles:
                             calls 'box grant <user>', which is the tier: the
                             group is only its socket, the user-<uid> project,
                             the boxnet-only narrowing, snapshots, backups and
-                            the box-net profile are the rest of it. Dropping
-                            the role hands the group back through
+                            the box-profile profile are the rest of it.
+                            Dropping the role hands the group back through
                             'box revoke' — never --purge: convergence removes
                             access, never someone's running boxes. box's
                             setup-host owns the Incus install; rig only
@@ -258,9 +258,9 @@ fi
 # Group incus is step 1 of the five 'box grant' performs: the group is the
 # SOCKET, while the tier is the per-user convergence behind it — the
 # user-<uid> project, its narrowing to boxnet and only boxnet, the snapshot
-# and backup allowances clone and 'box export' ride, and the shipped box-net
+# and backup allowances clone and 'box export' ride, and the shipped box-profile
 # profile installed into that project. rig doing step 1 alone left every
-# box-role user's first 'box new' refusing ("your project has no box-net
+# box-role user's first 'box new' refusing ("your project has no box-profile
 # profile"), so apply's promise — the users file is the fleet's source of
 # truth — was not kept for this role. It is kept by CALLING box's own grant
 # rather than reimplementing four fifths of it: 'box grant' is idempotent,
@@ -449,7 +449,7 @@ for u in "${USERS[@]}"; do
           # convergent call that changed nothing must not turn "already
           # converged; no changes" into a permanent lie on every host=yes box.
           if [ "$had_socket" -eq 0 ] && in_group "$u" incus; then
-            log "granted $u the restricted tier (incus group, user-$(id -u "$u") project, boxnet-only, box-net profile)"
+            log "granted $u the restricted tier (incus group, user-$(id -u "$u") project, boxnet-only, box-profile profile)"
             CHANGED=1
           fi
         elif in_group "$u" incus-admin; then
@@ -464,7 +464,7 @@ for u in "${USERS[@]}"; do
           # strictly more access than the tier would give them.
           warn "box grant $u exited $grant_rc and $u is in incus-admin, which box refuses to grant today — they keep the full socket (incus-admin is strictly stronger than the tier), but they get no user-<uid> project of their own and land in the shared default project alongside every other admin. Blocked on heavy-duty/box#99; everything else converged, and a later apply picks the tier up once box stops refusing"
         else
-          warn "box grant $u exited $grant_rc: $u has their account, keys and rig groups, but NOT the box restricted tier — no user-<uid> project, no boxnet narrowing, no box-net profile, so their 'box new' will refuse. box's own output above names the cause; fix it and re-run apply (or 'box grant $u' by hand). Every other user still converged — one box-role user must not stop apply for the fleet"
+          warn "box grant $u exited $grant_rc: $u has their account, keys and rig groups, but NOT the box restricted tier — no user-<uid> project, no boxnet narrowing, no box-profile profile, so their 'box new' will refuse. box's own output above names the cause; fix it and re-run apply (or 'box grant $u' by hand). Every other user still converged — one box-role user must not stop apply for the fleet"
         fi ;;
     esac
   fi
