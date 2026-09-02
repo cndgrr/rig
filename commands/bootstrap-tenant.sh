@@ -16,12 +16,14 @@
 # describes agentless and hardened tenants through AGENT/HARDEN_SSHD, so the
 # registry defines EVERY tenant role and rig's tree defines none (#185).
 #
-# Creds-free BY CONTRACT: box auto-runs these at mint ('box exec … rig
+# Creds-free BY CONTRACT: box mints a blank guest and a human converges it by
+# hand, from a root shell inside that one box ('box root <box>', then 'rig
 # bootstrap claude-box'), so every path here is non-interactive and nothing joins
 # or admits — no tailnet, no keys, no prompts. That is also why the registry
-# fetch is UNAUTHENTICATED: a mint holds nothing to authenticate with.
+# fetch is UNAUTHENTICATED: a converge run that way holds nothing to
+# authenticate with.
 # An agentless server tenant's tailnet join stays operator-run ('rig bootstrap
-# workload-server' through 'box shell'), exactly the creds split box#69 designed.
+# workload-server' through 'box root'), exactly the creds split box#69 designed.
 # Convergent: safe to re-run; a second run changes nothing.
 set -euo pipefail
 
@@ -67,8 +69,9 @@ The registry source is three knobs, precedence high to low:
                       RIG_TEMPLATES_PIN — bumped by ordinary rig PR, so a
                       rig release freezes the mechanism+registry pair)
 
-Tenant roles are creds-free and non-interactive by contract — box auto-runs
-them at mint (`box exec … rig bootstrap claude-box`). They take none of the
+Tenant roles are creds-free and non-interactive by contract — box mints a blank
+guest and a human converges it by hand, from a root shell inside it (`box root
+<box>`, then this command). They take none of the
 machine-role traits (--hostname/--root-door/--host/--join): a tenant is a guest,
 not a tailnet machine. Run as root, inside the box.
 EOF
@@ -551,7 +554,7 @@ fi
 
 log "done — tenant ${ROLE}, user ${TENANT_USER}"
 if [ "$TPL_AGENT" = "no" ]; then
-  log "next (operator-run, holds a credential): box shell → sudo rig bootstrap workload-server --hostname <name> with a tagged pre-auth key"
+  log "next (operator-run, holds a credential): box root <box> → rig bootstrap workload-server --hostname <name> with a tagged pre-auth key"
 else
   log "next: creds stay with the operator — ${CLI} authenticates through its own interactive login when a human decides"
 fi

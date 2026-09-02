@@ -600,8 +600,9 @@ check "rig usage documents the bootstrap users flags" 0 "(--users <path> | --no-
   "$ROOT/bin/rig" --help
 # The TENANT family takes neither flag. Dispatch happens before this parser
 # runs, so --users lands in the tenant script's own unknown-flag refusal — the
-# decision (a box-minted guest has no SSH door of its own; entry is `box shell`,
-# gated by the HOST's incus grants) is documented in usage and the README.
+# decision (a guest is converged by hand from a root shell inside it, and has no
+# SSH door of its own; entry is `box shell`, gated by the HOST's incus grants)
+# is documented in usage and the README.
 check "bootstrap: --users does not reach the tenant roles" 2 "unknown flag" \
   "$ROOT/commands/bootstrap.sh" claude-box --users "$BOOT_USERS/ok"
 check "bootstrap: usage explains why tenants take no --users" 0 "box-minted GUEST" \

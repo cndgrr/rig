@@ -106,8 +106,8 @@ templates_snapshot_usable() {
 # precedence — a tag outranks a branch that shares its name — plus the bare
 # archive/<ref> form, which is how a commit-SHA pin (the default) downloads.
 # Failure lists every URL tried: the fetch is unauthenticated by contract
-# (box auto-runs bootstrap at mint, holding nothing), so "is the repo public
-# and the ref real" is the whole diagnosis.
+# (a tenant is converged by hand from a root shell in the guest, holding
+# nothing), so "is the repo public and the ref real" is the whole diagnosis.
 TEMPLATES_TMP=""
 # shellcheck disable=SC2034  # REGISTRY_DIR is this function's OUTPUT, read by the sourcing script
 REGISTRY_DIR=""
