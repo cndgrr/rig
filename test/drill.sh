@@ -79,11 +79,29 @@ check "tree_of refuses a dangling chain — a tree that is not there is not a tr
 # the two ways to arrive without a tree, and both used to be legitimate entry
 # paths back when the subject came over the network.
 # =============================================================================
-ST="$WORK/rigtree"; mkdir -p "$ST/drill" "$ST/bin"
+ST="$(readlink -f "$WORK")/rigtree"; mkdir -p "$ST/drill" "$ST/bin"
 : > "$ST/install.sh"; printf '9.9.9\n' > "$ST/VERSION"; : > "$ST/bin/rig"
 : > "$ST/drill/drill.sh"
 check "self_tree resolves the rig tree a drill script ships in" 0 "$ST" \
   self_tree "$ST/drill/drill.sh"
+
+# The advertised entry path, and the acceptance criterion's own shape: the
+# drill invoked through the install's 'current' symlink. It must resolve to the
+# VERSIONED tree — a logical answer of '<root>/current' has no versions/
+# component, so the root derived from it would be the installer's default and
+# the drill would wipe one place while installing to another.
+SYMROOT="$(readlink -f "$WORK")/symroot"
+mkdir -p "$SYMROOT/versions/9.9.9/drill" "$SYMROOT/versions/9.9.9/bin"
+: > "$SYMROOT/versions/9.9.9/install.sh"
+printf '9.9.9\n' > "$SYMROOT/versions/9.9.9/VERSION"
+: > "$SYMROOT/versions/9.9.9/bin/rig"
+: > "$SYMROOT/versions/9.9.9/drill/drill.sh"
+ln -s "versions/9.9.9" "$SYMROOT/current"
+check "self_tree resolves through the install's current symlink to the versioned tree" 0 \
+  "$SYMROOT/versions/9.9.9" self_tree "$SYMROOT/current/drill/drill.sh"
+check "…so the root derived from it is the one the install will re-create" 0 "$SYMROOT" \
+  bash -c '. "$1"; rig_home_of "$(self_tree "$2")"' _ "$FNS" "$SYMROOT/current/drill/drill.sh"
+
 NOTRIG="$WORK/notrig"; mkdir -p "$NOTRIG/drill"; : > "$NOTRIG/drill/drill.sh"
 check "…and refuses a directory that is not a rig tree — a lone copy drills nothing" 1 "" \
   self_tree "$NOTRIG/drill/drill.sh"

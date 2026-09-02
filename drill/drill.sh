@@ -196,10 +196,18 @@ tree_of() {
 # tree. Both used to be legitimate entry paths, because the subject arrived
 # over the network; now neither has anything to drill, and inventing a subject
 # there would put a record's name on a tree nobody chose.
+# readlink -f FIRST, like tree_of: the drill's own advertised entry path runs
+# through the install's 'current' symlink, and a logical resolution of that
+# hands back '<root>/current' — a directory rig_home_of cannot read a versioned
+# root out of, so the drill would wipe the installer's default root while the
+# install re-created this one. The physical tree is the only one both agree on.
+# -f as well as -n, because readlink -f resolves a path whose last component
+# does not exist and would otherwise promote a missing script to a tree.
 self_tree() {
-  local src="$1" d
-  [ -f "$src" ] || return 1
-  d="$(cd "$(dirname "$src")/.." 2>/dev/null && pwd)" || return 1
+  local src="$1" real d
+  real="$(readlink -f "$src" 2>/dev/null)"
+  { [ -n "$real" ] && [ -f "$real" ]; } || return 1
+  d="$(dirname "$(dirname "$real")")"
   { [ -f "$d/install.sh" ] && [ -f "$d/VERSION" ] && [ -f "$d/bin/rig" ]; } || return 1
   printf '%s' "$d"
 }
