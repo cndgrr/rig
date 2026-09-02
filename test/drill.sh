@@ -99,6 +99,9 @@ printf '9.9.9\n' > "$SYMROOT/versions/9.9.9/VERSION"
 ln -s "versions/9.9.9" "$SYMROOT/current"
 check "self_tree resolves through the install's current symlink to the versioned tree" 0 \
   "$SYMROOT/versions/9.9.9" self_tree "$SYMROOT/current/drill/drill.sh"
+# The positional parameters belong to the child bash, intentionally — the two
+# functions have to compose in one shell for this to prove anything.
+# shellcheck disable=SC2016
 check "…so the root derived from it is the one the install will re-create" 0 "$SYMROOT" \
   bash -c '. "$1"; rig_home_of "$(self_tree "$2")"' _ "$FNS" "$SYMROOT/current/drill/drill.sh"
 

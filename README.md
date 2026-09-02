@@ -37,6 +37,31 @@ curl -fsSL .../install.sh | RIG_REF=main bash      # the development tree
 A tag outranks a branch of the same name (the pin must win); anything that
 is not a tag falls back to `refs/heads/<ref>`.
 
+### The offline channel — one file you can copy
+
+A machine that cannot reach GitHub, or that you would rather not give a
+credential, installs from a **self-contained installer** instead: a single
+`rig-<version>.sh` carrying the whole tree, published on each release beside
+its `.sha256` sidecar. Copy it over and run it — no `curl`, no `git`, no
+repository name and no ref:
+
+```sh
+scp rig-0.3.3.sh root@host:
+ssh root@host 'bash rig-0.3.3.sh'
+```
+
+It verifies its own payload's checksum **before** unpacking anything, so a
+truncated or mangled copy fails loudly and writes nothing; `--check` verifies
+without installing and `--version` prints the checksum. What it unpacks is
+handed to the same `install.sh` as every other channel, so the versioned
+layout, the atomic flip and the PATH heal are identical — the artifact adds
+integrity-checked, offline transport and nothing else. Extra arguments pass
+straight through.
+
+Build one from any checkout with `bash dist/release-artifact.sh --version
+<v> --assets-dir <dir>`; that is also how a release candidate reaches the
+drill host (see [`drill/README.md`](drill/README.md)).
+
 The layout, under the install root (`~/.local/share/rig`):
 
 ```
