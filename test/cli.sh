@@ -2205,7 +2205,7 @@ rm -rf "$NOPGREP_D"
 
 # --- the box role grants the TIER, not just the socket (#49) -----------------
 # Group incus is step 1 of the five 'box grant' performs; without the rest the
-# user's first 'box new' refuses for want of a box-net profile. Running the
+# user's first 'box new' refuses for want of a box-profile profile. Running the
 # real thing needs root, an Incus daemon and real accounts, so these assert the
 # CALL and its guard rails in the source — the same way every other root-only
 # refusal in this harness is pinned.

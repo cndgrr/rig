@@ -992,7 +992,7 @@ host-root-equivalent, break-glass by hand only.
 calls `box grant <user>` for every box-role user — the `incus` group is only
 the first of the five steps that grant performs (the `user-<uid>` project,
 its narrowing to `boxnet` and *only* `boxnet`, the snapshot and backup
-allowances `box clone` and `box export` ride, and the shipped `box-net`
+allowances `box clone` and `box export` ride, and the shipped `box-profile`
 profile installed into that project). rig calls box's own grant rather than
 reimplementing four fifths of it: the "rig never installs Incus" boundary is
 about installation, not invocation, and deferring here respects it harder
