@@ -4,6 +4,28 @@ History before 0.1.0 lives in git — rig grew its version surface (`VERSION`,
 `rig --version`, the side-by-side `versions/<v>` install layout; #35/#36)
 on the way to cutting its first release, and this file starts there.
 
+## 0.3.3 — 2026-09-02
+
+### Changed
+
+- Bootstrapped hosts install box 0.10.0 (#207).
+- Ceremony automation and doctrine are pinned to 0.7.7, so a taxonomy bootstrap press resolves the `operator` label row (#201).
+- The release drill runs without a checkout, derives operators from GitHub keys, refuses invalid entry paths before credentials, and prints its complete record (#195).
+
+### Fixed
+
+- A box tenant is documented as converged by hand from `box root`, not
+  auto-converged by box at mint (#210).
+- Documented root-in-a-guest commands reach root through `box root`, never
+  `box shell` plus `sudo rig` (#210).
+- `rig users apply` names box 0.10.0's `box-profile` placement profile (#209).
+- Drill instructions use box 0.10.0's mint syntax and current candidate pin (#208).
+
+### Removed
+
+- BREAKING: The Coolify install and backup commands and the Coolify drill leg are removed; the remaining db drill provisions Docker directly (#194).
+- BREAKING: The `rig runner` command family and runner release-drill leg are removed. The `runner-server` convergence role remains. (#193).
+
 ## 0.3.2 — 2026-08-21
 
 ### Added
