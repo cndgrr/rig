@@ -71,9 +71,9 @@ The registry source is three knobs, precedence high to low:
 
 Tenant roles are creds-free and non-interactive by contract — box mints a blank
 guest and a human converges it by hand, from a root shell inside it (`box root
-<box>`, then this command). They take none of the
-machine-role traits (--hostname/--root-door/--host/--join): a tenant is a guest,
-not a tailnet machine. Run as root, inside the box.
+<box>`, then this command). They take none of the machine-role traits
+(--hostname/--root-door/--host/--join): a tenant is a guest, not a tailnet
+machine. Run as root, inside the box.
 EOF
 }
 
