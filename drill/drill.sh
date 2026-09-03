@@ -512,7 +512,7 @@ SELF_SOURCE_COMMIT="$(tree_source_commit "$SELF_TREE")"
 # by default, and the directory it would name is the staging copy — a temp path
 # that will not exist by the time anyone reads the record. Carry this tree's own
 # provenance across instead: the reinstall installs the identical bytes, so
-# 'artifact:rig-0.3.3.sh sha256:…' stays the true answer to where this rig came
+# 'artifact:rig-0.4.0.sh sha256:…' stays the true answer to where this rig came
 # from. A tree with no provenance at all — a checkout — says so as itself.
 SELF_FROM="$(cat "$SELF_TREE/INSTALLED_FROM" 2>/dev/null || true)"
 [ -n "$SELF_FROM" ] || SELF_FROM="local:$SELF_TREE"
@@ -522,8 +522,8 @@ SELF_FROM="$(cat "$SELF_TREE/INSTALLED_FROM" 2>/dev/null || true)"
 # so it is derived from where the tree under drill actually sits, and exported
 # so install.sh reaches the same answer. A checkout has no versioned root and
 # falls through to the installer's own default.
-if [ -z "${RIG_HOME:-}" ] && RIG_HOME="$(rig_home_of "$SELF_TREE")"; then
-  export RIG_HOME
+if [ -z "${RIG_HOME:-}" ]; then
+  RIG_HOME="$(rig_home_of "$SELF_TREE" || true)"
 fi
 RIG_HOME="${RIG_HOME:-$HOME/.local/share/rig}"
 RIG_BIN="${RIG_BIN:-/usr/local/bin}"
@@ -531,10 +531,37 @@ RIG_BIN="${RIG_BIN:-/usr/local/bin}"
 # replaces it is now derived — from a tree's location, or from the operator's
 # own environment. Absolute with at least two components, or nothing runs:
 # '/', '/opt' and any relative path are refused here rather than discovered.
+#
+# CANONICALIZE BEFORE JUDGING, AND JUDGE WHAT COMES BACK. The refusal below is
+# a glob: it counts slashes in a string, while `rm -rf` operates on the path
+# that string RESOLVES to. Those are two different questions, and the gap is
+# precisely the operator-supplied half — rig_home_of runs on a readlink -f'd
+# path and can never hand back a '..' component, but an environment string can:
+# '/opt/rig/../..' is two components as spelled and IS '/', the one value the
+# paragraph above names as refused. Resolving first makes the depth rule mean
+# what it says; it stays a depth rule and not an allowlist, so a literal
+# '/etc/rig' is as permitted as it always was.
+#
+# realpath -m rather than readlink -f, though -f is this file's idiom elsewhere:
+# the install root legitimately need not exist yet, and that is exactly where
+# readlink -f gives up. Same coreutils package either way.
+command -v realpath >/dev/null 2>&1 || { echo "drill: realpath is required — the install root is canonicalized before it is wiped, and this drill will not hand an unresolved path to rm -rf" >&2; exit 2; }
+RIG_HOME_GIVEN="$RIG_HOME"
+RIG_HOME="$(realpath -m -- "$RIG_HOME" 2>/dev/null || true)"
 case "$RIG_HOME" in
   /*/?*) ;;
-  *) echo "drill: RIG_HOME=$RIG_HOME is not a sane install root — the drill wipes and re-creates this path, so it must be an absolute path at least two components deep" >&2; exit 2 ;;
+  *)
+    echo "drill: RIG_HOME=$RIG_HOME_GIVEN is not a sane install root — the drill wipes and re-creates this path, so it must be an absolute path at least two components deep" >&2
+    [ "$RIG_HOME_GIVEN" = "$RIG_HOME" ] || echo "drill:   it resolves to ${RIG_HOME:-<unresolvable>}, and that is the path rm -rf would have taken" >&2
+    exit 2 ;;
 esac
+# ONE VALUE FROM HERE ON. The path the wipe takes and the path install.sh
+# writes to must be the same computed string rather than two separately-derived
+# ones that happen to agree: install.sh reads ${RIG_HOME:-$HOME/.local/share/rig}
+# itself, so without this export the default case is agreement by coincidence
+# and the canonical case is not agreement at all — the drill would wipe the
+# resolved root and install to the spelling.
+export RIG_HOME
 
 case "$ROLE" in
   staging-server|dev-server|control-plane-server|workload-server|runner-server) ;;

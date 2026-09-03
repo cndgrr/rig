@@ -31,8 +31,8 @@ release (#105, and #107's debt).
   want to drill:
 
   ```sh
-  bash dist/release-artifact.sh --version 0.3.3-rc1 --assets-dir /tmp/a
-  scp /tmp/a/rig-0.3.3-rc1.sh root@drill-host:
+  bash dist/release-artifact.sh --version 0.4.0-rc1 --assets-dir /tmp/a
+  scp /tmp/a/rig-0.4.0-rc1.sh root@drill-host:
   ```
 
   No repository name, no ref, no clone, no credential on the drill host. A
@@ -71,10 +71,10 @@ Three lines. The first two are on your machine, in the checkout you want to
 drill; the third is on the throwaway, as root.
 
 ```sh
-bash dist/release-artifact.sh --version 0.3.3-rc1 --assets-dir /tmp/a
-scp /tmp/a/rig-0.3.3-rc1.sh root@drill-host:
+bash dist/release-artifact.sh --version 0.4.0-rc1 --assets-dir /tmp/a
+scp /tmp/a/rig-0.4.0-rc1.sh root@drill-host:
 
-bash rig-0.3.3-rc1.sh
+bash rig-0.4.0-rc1.sh
 TS_AUTHKEY=tskey-... /root/.local/share/rig/current/drill/drill.sh \
   --box-ref 0.10.0 --users-from-github danmt --run-id drill-2026-08-26-a --yes
 ```

@@ -46,8 +46,8 @@ its `.sha256` sidecar. Copy it over and run it — no `curl`, no `git`, no
 repository name and no ref:
 
 ```sh
-scp rig-0.3.3.sh root@host:
-ssh root@host 'bash rig-0.3.3.sh'
+scp rig-0.4.0.sh root@host:
+ssh root@host 'bash rig-0.4.0.sh'
 ```
 
 It verifies its own payload's checksum **before** unpacking anything, so a

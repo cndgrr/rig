@@ -341,6 +341,26 @@ staging_pipeline_is_pipefailed() {
 }
 check "the staging copy's verdict is both tars', not just the extractor's" 0 "" \
   staging_pipeline_is_pipefailed
+# The wipe operand and install.sh's destination have to be ONE value, not two
+# separately-derived ones that agree: install.sh reads ${RIG_HOME:-…} itself.
+# So the drill canonicalizes, judges the canonical value, exports THAT, and
+# only then wipes — and the ORDER is the whole of the guarantee. Canonicalizing
+# after the export would leave install.sh writing to the spelling while rm -rf
+# took the resolved path, which is worse than either alone. Order is what is
+# asserted; like the pipeline above there is no function here to extract.
+canonicalize_precedes_export_and_wipe() {
+  local canon_at export_at wipe_at
+  # Single-quoted: the shipped bytes are matched literally, not expanded here.
+  # shellcheck disable=SC2016
+  canon_at="$(grep -nF 'RIG_HOME="$(realpath -m' "$ROOT/drill/drill.sh" | head -n1 | cut -d: -f1)"
+  export_at="$(grep -nxF 'export RIG_HOME' "$ROOT/drill/drill.sh" | head -n1 | cut -d: -f1)"
+  # shellcheck disable=SC2016
+  wipe_at="$(grep -nF 'rm -rf "$RIG_HOME" "$RIG_BIN/rig"' "$ROOT/drill/drill.sh" | head -n1 | cut -d: -f1)"
+  [ -n "$canon_at" ] && [ -n "$export_at" ] && [ -n "$wipe_at" ] &&
+    [ "$canon_at" -lt "$export_at" ] && [ "$export_at" -lt "$wipe_at" ]
+}
+check "the root is canonicalized before it is exported, and exported before it is wiped" 0 "" \
+  canonicalize_precedes_export_and_wipe
 if git -C "$ROOT" rev-parse --git-dir >/dev/null 2>&1; then
   check "…and the bit is recorded in the tree, not just on this working copy" 0 "100755" \
     drill_recorded_mode
@@ -411,6 +431,28 @@ check "…and the refusal points at the artifact as the way to get one on the ma
   "dist/release-artifact.sh" drill_outside_a_rig_tree
 check "an install root that is not sane is refused before anything is wiped" 2 "not a sane install root" \
   env RIG_HOME=/ bash "$ROOT/drill/drill.sh" --box-ref b --users "$WORK/no-such-users" --yes
+# THE GATE IS ON THE RESOLVED ROOT, NOT ON ITS SPELLING (#220 round 2). The
+# depth rule is a glob and counts slashes in a string; `rm -rf` operates on
+# what that string RESOLVES to. A '..' component has two components as spelled
+# and can be anything at all — '/opt/rig/../..' IS the '/' the case above
+# refuses. These fire on the spelling so a re-introduction reds here rather
+# than on a drill host, and they read the RESOLVED path out of the refusal so
+# what they pin is the canonicalization and not one more literal.
+check "a traversal spelling of / is refused — the gate judges the resolved root" 2 \
+  "not a sane install root" \
+  env RIG_HOME=/opt/rig/../.. bash "$ROOT/drill/drill.sh" --box-ref b --users "$WORK/no-such-users" --yes
+check "…and the refusal names what it resolved to, not only what was typed" 2 \
+  "it resolves to /, and that is the path rm -rf would have taken" \
+  env RIG_HOME=/opt/rig/../.. bash "$ROOT/drill/drill.sh" --box-ref b --users "$WORK/no-such-users" --yes
+check "a traversal spelling of a one-component root is refused the same way" 2 \
+  "it resolves to /etc" \
+  env RIG_HOME=/tmp/../etc bash "$ROOT/drill/drill.sh" --box-ref b --users "$WORK/no-such-users" --yes
+# The other half: it stays a DEPTH rule and does not become an allowlist. A
+# traversal spelling that resolves deep enough is as fine as one typed flat,
+# and gets as far as the users file, which is the next gate along.
+check "a traversal spelling that resolves deep enough still passes the gate" 2 \
+  "cannot read users file" \
+  env RIG_HOME=/tmp/../tmp/drill-gate-probe/root bash "$ROOT/drill/drill.sh" --box-ref b --users "$WORK/no-such-users" --yes
 check "a tenant role is refused — the drill converges machines, not guests" 2 "not a machine role" \
   bash "$ROOT/drill/drill.sh" --box-ref b --role claude-box --yes
 check "no users source is a refusal" 2 "exactly one of --users <path> or --users-from-github <handle>" \
