@@ -253,7 +253,7 @@ emit() {   # emit <outfile> — emit_record with the harness globals staged
   DRILL_VERSION="9.9.9" RUN_ID="drill-2026-01-01-a" \
   RIG_SOURCE_COMMIT="21afc76c7fa2e63654df34d5d7a332950f60fb5e-dirty" \
   RIG_FROM="artifact:rig-9.9.9.sh sha256:abc123" \
-  BOXREF="release/0.4.0" BOX_SHA="1a2b3c4" \
+  BOXREF="0.4.0" BOX_SHA="1a2b3c4" \
   TPLREPO="heavy-duty/rig-templates" TPLREF="9f8e7d6c5b4a39281706f5e4d3c2b1a098765432" TPL_SHA="9f8e7d6" TPL_SOURCE="snapshot" \
   bash -c '
     . "$1"
@@ -272,7 +272,7 @@ check "record: the rig fields are the installed tree's, not an argument's (#220)
   cat "$WORK/record.md"
 check "record: an artifact built from a dirty work tree is stamped -dirty" 0 "-dirty" cat "$WORK/record.md"
 refute "record: no rig ref field survives — there is no rig ref to cite" "RIG_REF=" "$WORK/record.md"
-check "record: box still cites a ref, because box is still installed by one" 0 "Candidate box: box@1a2b3c4 (BOX_REF=release/0.4.0)." cat "$WORK/record.md"
+check "record: box still cites a ref, because box is still installed by one" 0 "Candidate box: box@1a2b3c4 (BOX_REF=0.4.0)." cat "$WORK/record.md"
 check "record: the template registry SHA and actual source ride alongside the pair (#110/#153)" 0 "rig-templates@9f8e7d6 (ref 9f8e7d6c5b4a39281706f5e4d3c2b1a098765432, snapshot)" cat "$WORK/record.md"
 check "record: one table row per leg, result verbatim" 0 "| re-converge (idempotence) | clean, no changes |" cat "$WORK/record.md"
 check "record: the numbers, skips counted apart from passes" 0 "12 passed, 1 failed, 1 skipped" cat "$WORK/record.md"
@@ -287,7 +287,7 @@ refute "notes are findings for the log, not failures for the record" "NOTE: some
 # RIG_FROM here on purpose — the emitter's own defaults have to hold, because a
 # record whose rig line went blank is the failure mode this file exists for.
 DRILL_VERSION="9.9.9" RUN_ID="drill-2026-01-01-a" \
-BOXREF="release/0.4.0" BOX_SHA="1a2b3c4" \
+BOXREF="0.4.0" BOX_SHA="1a2b3c4" \
 bash -c '
   . "$1"
   pass=20 fail=0 skipped=0

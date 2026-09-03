@@ -99,8 +99,10 @@ handoff of a release PR, run by `drill/drill.sh` (#105): `rig bootstrap`
 converging the machine to its role twice with the second run diffed empty,
 installing Docker directly, and running `test/db-integration.sh`. Rig's drill asserts
 **convergence** (a machine reaches its role,
-idempotently), it runs `--host yes` with `BOX_REF=release/<box-version>` so
-it exercises the box that will actually ship, and drills that share a
+idempotently), it runs `--host yes` with `BOX_REF=<box-version>` — the bare
+shipping tag, because since #103 the box that ships is the `BOX_RELEASE` tag
+and a `release/…` branch moves — so it exercises the box that will actually
+ship, and drills that share a
 substrate share **one run ID** so the per-repo records can be joined after
 the fact. The full meaning — how the candidate pair is fixed so the box↔rig
 recursion dissolves, the per-version record files, the waiver rule — is

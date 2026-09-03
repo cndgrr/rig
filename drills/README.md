@@ -60,8 +60,11 @@ ordering rule between repos.
 **The three repos' drills are independent.** Run them in any order, on any
 schedule, in separate sittings. What makes that safe is that every drill
 **fixes the same candidate pair** before it starts. rig's drill runs
-`--host yes` with `BOX_REF=release/<box-version>`, so it exercises the box
-that will actually ship. box's drill mints with `RIG_REF=release/<rig-version>`
+`--host yes` with `BOX_REF=<box-version>` — the bare shipping tag, since #103
+made the box that ships the `BOX_RELEASE` tag rather than a moving
+`release/…` branch — so it exercises the box that will actually ship, and its
+own half of the pair is not a ref at all any more but the tree the harness
+ships in (#220). box's drill mints with `RIG_REF=release/<rig-version>`
 against rig's own installer, so it exercises the rig that will actually ship.
 Both measure the same pair. The record also cites the **rig-templates SHA**
 the converge read (#110) — the drilled tree's `RIG_TEMPLATES_PIN` unless the
@@ -119,7 +122,7 @@ an invented number is worse than no number.
 
 Run ID: drill-2026-01-01-a. Host: bare Debian 13 cloud image, 4 vCPU / 8 GB.
 Rig under drill: 9.9.9, built from 5d6e7f8… — artifact:rig-9.9.9.sh sha256:….
-Candidate box: box@1a2b3c4 (BOX_REF=release/0.4.0).
+Candidate box: box@1a2b3c4 (BOX_REF=0.4.0).
 
 | Leg | Result |
 | --- | --- |
