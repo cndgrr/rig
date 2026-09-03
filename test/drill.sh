@@ -316,6 +316,22 @@ check "the final record payload includes the full record" 0 "Every leg ran and e
 # =============================================================================
 # the shipped script itself
 # =============================================================================
+# The instrument is the entry point now (#220 D2), so its MODE is part of the
+# contract: drill/README.md's *Running it*, the script header and usage() all
+# print '<root>/current/drill/drill.sh' as a path to type, and a tree that
+# ships it 644 answers that with exit 126. Nothing downstream restores the bit
+# — install.sh's set_exec() owns bin/rig and commands/*.sh only, and
+# dist/make-installer.sh chmods the artifact, not its payload — so the bit has
+# to be in the tree, and the recorded mode is what git archive, the artifact's
+# tar and install.sh's copy all carry through untouched.
+check "the shipped drill script is executable — the documented path is typed, not sourced" 0 "" \
+  test -x "$ROOT/drill/drill.sh"
+drill_recorded_mode() { git -C "$ROOT" ls-files -s -- drill/drill.sh | cut -d' ' -f1; }
+if git -C "$ROOT" rev-parse --git-dir >/dev/null 2>&1; then
+  check "…and the bit is recorded in the tree, not just on this working copy" 0 "100755" \
+    drill_recorded_mode
+fi
+
 # Arg refusals fire before the root check (repo doctrine, bootstrap.sh:114),
 # which is what makes them provable here without a throwaway machine.
 check "drill.sh refuses to run without box's ref pinned (#103)" 2 "--box-ref" \

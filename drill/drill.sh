@@ -639,7 +639,15 @@ STAGE="$(mktemp -d /tmp/drill-rig-tree.XXXXXX)"
 CLEANUP_PATHS+=("$STAGE")
 # tar rather than cp -a, and --exclude=.git: the same copy install.sh makes of
 # a local source, so a checkout never carries its VCS state into the drill.
-if ! tar -C "$SELF_TREE" --exclude=.git -cf - . | tar -xf - -C "$STAGE"; then
+#
+# pipefail in a SUBSHELL, the one place in this file that wants it: the header
+# at the top explains why the file as a whole must not have it, and that reason
+# (a left side that exits non-zero by design) does not apply to two tars. Read
+# without it, this pipeline's verdict is the extracting tar's alone, so a
+# source-side failure would report success on a truncated stream — and the next
+# statement is the rm -rf. The subshell buys the verdict without touching the
+# policy the rest of the file depends on.
+if ! ( set -o pipefail; tar -C "$SELF_TREE" --exclude=.git -cf - . | tar -xf - -C "$STAGE" ); then
   echo "drill: could not stage $SELF_TREE — nothing has been touched yet; fix the copy and re-run." >&2
   exit 1
 fi
