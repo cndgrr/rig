@@ -546,6 +546,16 @@ RIG_BIN="${RIG_BIN:-/usr/local/bin}"
 # the install root legitimately need not exist yet, and that is exactly where
 # readlink -f gives up. Same coreutils package either way.
 command -v realpath >/dev/null 2>&1 || { echo "drill: realpath is required — the install root is canonicalized before it is wiped, and this drill will not hand an unresolved path to rm -rf" >&2; exit 2; }
+# ABSOLUTE IS ASKED FIRST, BEFORE RESOLVING, and it is the half that resolution
+# cannot be trusted with: realpath -m resolves a relative path against $PWD and
+# hands back something absolute and deep, so 'rig' would arrive at the depth
+# rule below as "$PWD/rig" and PASS — canonicalization would have quietly
+# promoted a spelling this gate refuses into one it accepts, and the drill
+# wipes what it resolves. Spelling first, then the resolved value.
+case "$RIG_HOME" in
+  /*) ;;
+  *) echo "drill: RIG_HOME=$RIG_HOME is not a sane install root — it must be absolute, and a relative path is refused BEFORE it is resolved: resolving it against \$PWD would make it absolute and deep enough to pass, and the drill wipes what it resolves" >&2; exit 2 ;;
+esac
 RIG_HOME_GIVEN="$RIG_HOME"
 RIG_HOME="$(realpath -m -- "$RIG_HOME" 2>/dev/null || true)"
 case "$RIG_HOME" in

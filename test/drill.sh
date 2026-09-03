@@ -447,6 +447,14 @@ check "…and the refusal names what it resolved to, not only what was typed" 2 
 check "a traversal spelling of a one-component root is refused the same way" 2 \
   "it resolves to /etc" \
   env RIG_HOME=/tmp/../etc bash "$ROOT/drill/drill.sh" --box-ref b --users "$WORK/no-such-users" --yes
+# Resolution cannot be trusted with the absolute half, so the absolute half is
+# asked first: realpath -m resolves a relative root against $PWD and returns
+# something absolute and deep, which would PROMOTE a refused spelling into an
+# accepted one. This case reds on a gate that canonicalizes before it checks
+# absoluteness — the shape the first cut of this fix had.
+check "a relative install root is refused before it is resolved against \$PWD" 2 \
+  "refused BEFORE it is resolved" \
+  env RIG_HOME=relative/path bash "$ROOT/drill/drill.sh" --box-ref b --users "$WORK/no-such-users" --yes
 # The other half: it stays a DEPTH rule and does not become an allowlist. A
 # traversal spelling that resolves deep enough is as fine as one typed flat,
 # and gets as far as the users file, which is the next gate along.
