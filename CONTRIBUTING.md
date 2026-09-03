@@ -87,23 +87,36 @@ heavy-duty/ceremony's machinery, consumed by reference:
 [its README](https://github.com/heavy-duty/ceremony/blob/main/README.md)
 is the doctrine, `.github/workflows/release.yml` here is the ≤20-line
 caller pinning it, and the guards run in `ci.yml` from the same pin.
-Bare `X.Y.Z` tags, no `v`; the tag's source tarball is the package
-`install.sh` downloads — rig ships no other artifact. Each release deliberately
-bumps and drills the `BOX_RELEASE` pin in `commands/bootstrap.sh`; it must never
-float to a moving ref.
+Bare `X.Y.Z` tags, no `v`; the tag's source tarball is the package the
+`curl … | bash` channel downloads, and since #219 a release also carries a
+self-contained `rig-<version>.sh` installer and its `.sha256` sidecar, built by
+`dist/release-artifact.sh`. Each release deliberately bumps and drills the
+`BOX_RELEASE` pin in `commands/bootstrap.sh`; it must never float to a moving
+ref.
 
 What stays rig's is the **drill** — the real-hardware gate before the
 handoff of a release PR, run by `drill/drill.sh` (#105): `rig bootstrap`
 converging the machine to its role twice with the second run diffed empty,
 installing Docker directly, and running `test/db-integration.sh`. Rig's drill asserts
 **convergence** (a machine reaches its role,
-idempotently), it runs `--host yes` with `BOX_REF=release/<box-version>` so
-it exercises the box that will actually ship, and drills that share a
+idempotently), it runs `--host yes` with `BOX_REF=<box-version>` — the bare
+shipping tag, because since #103 the box that ships is the `BOX_RELEASE` tag
+and a `release/…` branch moves — so it exercises the box that will actually
+ship, and drills that share a
 substrate share **one run ID** so the per-repo records can be joined after
-the fact. The full meaning — the fixed candidate-ref pinning that dissolves
-the box↔rig recursion, the per-version record files, the waiver rule — is
+the fact. The full meaning — how the candidate pair is fixed so the box↔rig
+recursion dissolves, the per-version record files, the waiver rule — is
 [`drills/README.md`](drills/README.md); the `drill-recorded` guard enforces
 the record on every release tree.
+
+**The drill's subject is the tree it ships in** (#220), so getting the
+candidate onto the machine is a copy, not a checkout: build the artifact from
+the branch under test, `scp` it to a throwaway Debian, install it, and run the
+drill out of what landed. There is no `--rig-repo` and no `--rig-ref` — the
+drill host needs no repository name, no ref, no clone and no GitHub
+credential, and the record's rig fields are measured off the installed tree
+rather than echoed back from an argument. [`drill/README.md`](drill/README.md)
+is the procedure.
 
 The builder runs the drill when they have a genuine fresh Debian host or VM;
 otherwise the operator runs it. An operator posts the instrument's complete

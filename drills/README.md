@@ -16,9 +16,10 @@ any glob without `dotglob`, which is how #70 here and box#116 / box#118 all
 happened.
 
 **This directory is the record, not the instrument.** The instrument is
-[`drill/drill.sh`](../drill/README.md) (#105): it runs the legs, asserts the
-pinned refs actually landed, decides idempotence by a mechanical state diff,
-and emits the record file this directory holds. rig does not reach into
+[`drill/drill.sh`](../drill/README.md) (#105): it runs the legs, asserts that
+what landed is the tree it ships in and the box that was pinned, decides
+idempotence by a mechanical state diff, and emits the record file this
+directory holds. rig does not reach into
 another repo's harness to decide whether rig may ship: a cross-repo lookup
 that fails silently degrades to "pass", which is the UNREADABLE-vs-NONE shape
 #90 fixed. The gate reads a file in this repo, and nothing else.
@@ -58,23 +59,34 @@ ordering rule between repos.
 
 **The three repos' drills are independent.** Run them in any order, on any
 schedule, in separate sittings. What makes that safe is that every drill
-**pins the same fixed set of candidate refs**: rig's drill runs `--host yes`
-with `BOX_REF=release/<box-version>`, so it exercises the box that will
-actually ship; box's drill mints with `RIG_REF=release/<rig-version>`, so it
-exercises the rig that will actually ship. Both measure the same pair. The
-record also cites the **rig-templates SHA** the converge read (#110) — the
-candidate tree's `RIG_TEMPLATES_PIN` unless the drill was pointed elsewhere
-via `RIG_TEMPLATES_REF` — so the mechanism+registry pair a release freezes
-is the pair the drill proved.
+**fixes the same candidate pair** before it starts. rig's drill runs
+`--host yes` with `BOX_REF=<box-version>` — the bare shipping tag, since #103
+made the box that ships the `BOX_RELEASE` tag rather than a moving
+`release/…` branch — so it exercises the box that will actually ship, and its
+own half of the pair is not a ref at all any more but the tree the harness
+ships in (#220). box's drill mints with `RIG_REF=release/<rig-version>`
+against rig's own installer, so it exercises the rig that will actually ship.
+Both measure the same pair. The record also cites the **rig-templates SHA**
+the converge read (#110) — the drilled tree's `RIG_TEMPLATES_PIN` unless the
+drill was pointed elsewhere via `RIG_TEMPLATES_REF` — so the
+mechanism+registry pair a release freezes is the pair the drill proved.
 
-That — not sequencing — is what dissolves the box↔rig recursion. The refs are
-static identifiers that exist as soon as the release branches do, long before
-any drill runs, so a cycle at runtime becomes two independent tests against
-one fixed pair. It also means **candidate refs, not released artifacts**:
-`RIG_REPO`/`RIG_REF` are mint-time environment variables, so no repo has to be
-released before another can be drilled. Drilling the candidate *is* drilling
-the release, because a release PR's diff is `VERSION` + `CHANGELOG.md` and
-nothing executable differs.
+**rig fixes its own half differently from box, and since #220 it does not use
+a ref at all.** rig's drill drills the tree it ships in: the candidate is
+built into a self-contained installer, copied to the machine and installed,
+and the drill runs out of what landed. So rig's side of the pair is pinned by
+*being* the tree rather than by naming one, which is strictly stronger — a
+ref says what was requested, and the record now says what ran. box's side
+still names a ref, because box is still installed over the network.
+
+That — not sequencing — is what dissolves the box↔rig recursion. Neither
+half's identity depends on the other having been released: box's ref is a
+static identifier that exists as soon as its release branch does, and rig's
+candidate is a file on the drill host. A cycle at runtime becomes two
+independent tests against one fixed pair. It also means **candidates, not
+released artifacts** — no repo has to be released before another can be
+drilled. Drilling the candidate *is* drilling the release, because a release
+PR's diff is `VERSION` + `CHANGELOG.md` and nothing executable differs.
 
 Each repo drills in a **different way** and asserts a different thing: rig
 asserts **convergence** (a machine reaches its role, idempotently), box asserts
@@ -92,8 +104,15 @@ do **not** have to be published in a fixed order.
 
 ## What a record should contain
 
-What ran, on what host, the pinned candidate refs, the numbers, and what
-failed. Below is the *shape*, in a file named `drills/9.9.9.md` — a version
+What ran, on what host, which rig and which box, the numbers, and what
+failed. The rig line is **measured, never argued** (#220): its version, the
+commit its installer artifact was built from — `-dirty`-stamped when that
+build's work tree was — and the provenance `install.sh` recorded, all read off
+the tree that landed rather than echoed back from an argument. A record that
+cannot be reproduced says so on its face: a tree no artifact built is
+`(unstamped)`, never given a commit it does not have.
+
+Below is the *shape*, in a file named `drills/9.9.9.md` — a version
 that can never collide with a real release. **No drill has been recorded here
 yet**; this log starts empty rather than reconstructing runs from memory, since
 an invented number is worse than no number.
@@ -102,7 +121,8 @@ an invented number is worse than no number.
 # Release drill — 9.9.9 — 2026-01-01
 
 Run ID: drill-2026-01-01-a. Host: bare Debian 13 cloud image, 4 vCPU / 8 GB.
-Candidate refs: box@1a2b3c4 (BOX_REF=release/0.4.0), rig@5d6e7f8, cast@9a0b1c2.
+Rig under drill: 9.9.9, built from 5d6e7f8… — artifact:rig-9.9.9.sh sha256:….
+Candidate box: box@1a2b3c4 (BOX_REF=0.4.0).
 
 | Leg | Result |
 | --- | --- |
