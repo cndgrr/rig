@@ -327,6 +327,20 @@ check "the final record payload includes the full record" 0 "Every leg ran and e
 check "the shipped drill script is executable — the documented path is typed, not sourced" 0 "" \
   test -x "$ROOT/drill/drill.sh"
 drill_recorded_mode() { git -C "$ROOT" ls-files -s -- drill/drill.sh | cut -d' ' -f1; }
+# The staging copy is the one pipeline in this file whose verdict must be both
+# tars'. Without pipefail a source-side failure that still emits a valid
+# partial archive — an unreadable file is enough — reads as success, and the
+# next statement is the rm -rf. The file cannot take pipefail globally (see its
+# header), so the subshell is the shape, and the shape is what is asserted:
+# there is no function here to extract and drive.
+staging_pipeline_is_pipefailed() {
+  # The single quotes are the point: $SELF_TREE is matched literally, as the
+  # shipped bytes spell it, not expanded here.
+  # shellcheck disable=SC2016
+  grep -qF 'if ! ( set -o pipefail; tar -C "$SELF_TREE"' "$ROOT/drill/drill.sh"
+}
+check "the staging copy's verdict is both tars', not just the extractor's" 0 "" \
+  staging_pipeline_is_pipefailed
 if git -C "$ROOT" rev-parse --git-dir >/dev/null 2>&1; then
   check "…and the bit is recorded in the tree, not just on this working copy" 0 "100755" \
     drill_recorded_mode
